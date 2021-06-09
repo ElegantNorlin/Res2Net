@@ -6,6 +6,7 @@ import os
 from torch.autograd import Variable
 
 #os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+# res2模块的输入和输出特征维度是相等的，我已经测试过了，也可以自己测试看一下
 '''
 pytorch中tensor的维度分别代表什么？
 举个例子：torch.Size([8, 64, 32, 32])
