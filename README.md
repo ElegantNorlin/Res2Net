@@ -3,3 +3,4 @@
 在学习过程中对代码进行了详细的注释
 
 https://github.com/ElegantAlan/Res2Net/blob/main/Architecture%20image/res2net.PNG?raw=true
+(https://github.com/ElegantAlan/Res2Net/blob/main/Architecture%20image/res2net.PNG?raw=true)
