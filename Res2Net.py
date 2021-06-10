@@ -12,8 +12,8 @@ pytorch中tensor的维度分别代表什么？
 举个例子：torch.Size([8, 64, 32, 32])
 8为batch_size
 64为channels
-32为高
 32为宽
+32为高
 '''
 class Res2Net(nn.Module):
     def __init__(self, features_size, stride_ = 1, scale = 4, padding_ = 1, groups_ = 1, reduction = 16):
