@@ -9,6 +9,7 @@ from torch.autograd import Variable
 # res2模块的输入和输出特征维度是相等的，我已经测试过了，也可以自己测试看一下
 '''
 pytorch中tensor的维度分别代表什么？
+注释中的参数是以下面的例子讲解的！
 举个例子：torch.Size([8, 64, 32, 32])
 8为batch_size
 64为channels

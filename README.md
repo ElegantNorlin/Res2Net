@@ -4,7 +4,16 @@
 
 与原仓库不同的是，我的代码是单纯的res2模块，并没有结合其他的CNN网络。
 
-本仓库Res2Net的代码可以打印出每一层的特征维度参数
+
+
+如果想看某一层网络的参数可以直接在相关位置加上打印代码，程序入口我已经写好了，直接写打印代码跑程序即可。
 可以根据代码逻辑打印其他CNN网络中各层的特征维度参数，为网络调整带来了便携
+
 ### Architecture image
 ![image](https://github.com/ElegantAlan/Res2Net/blob/main/Architecture%20image/res2net.PNG?raw=true)
+
+今天想把res2模型整合一下，发现我写的代码是真的烂透了哈哈哈
+
+看着恶心代码，最后还是把他搞定了。
+
+以后写代码还是得高度模块化。
