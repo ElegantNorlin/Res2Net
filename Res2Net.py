@@ -20,7 +20,7 @@ features_size即是输入特征尺寸也是输出特征尺寸，每个尺度的�
 怎么样动态的传入特征输入、输出维度的参数呢？
 其实很简单，不需要修改代码，在调用Res2Net类的时候只传入第一个参数，也就是features_size参数
 '''
-class Res2Net(nn.Module):
+class Res2Block(nn.Module):
     def __init__(self, features_size参数 = 64, stride_ = 1, scale = 4, padding_ = 1, groups_ = 1, reduction = 16):
         super(Res2Net,self).__init__()
         #erro for wrong input如果输入不正确则会报错
@@ -81,14 +81,14 @@ class Res2Net(nn.Module):
         return result
 
 if __name__ == "__main__":
-    res2net = Res2Net(64,1,4,1,1,16)
-    res2net.cuda()
+    res2block = Res2Block(64,1,4,1,1,16)
+    res2block.cuda()
     # bs,channels,height,width
     x = Variable(torch.rand([8, 64, 32, 32]).cuda())
-    y = res2net(x)
+    y = res2block(x)
     # x.shape = torch.Size([8, 64, 32, 32])
     print(x.shape)
     # y.shape = torch.Size([8, 64, 32, 32])
     print(y.shape)
-    print(res2net)
-    torch.save(res2net, 'Res2Net.pth')
+    print(res2block)
+    torch.save(res2block, 'Res2Net.pth')
