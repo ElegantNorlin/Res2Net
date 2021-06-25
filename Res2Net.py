@@ -15,10 +15,13 @@ pytorch中tensor的维度分别代表什么？
 64为channels
 32为宽
 32为高
+features_size即是输入特征尺寸也是输出特征尺寸，每个尺度的特征提取features_size都不同
+着我里是因为我的代码原因，我需要设置成这样，建议大家可以动态的传入参数
+怎么样动态的传入特征输入、输出维度的参数呢？
+其实很简单，不需要修改代码，在调用Res2Net类的时候只传入第一个参数，也就是features_size参数
 '''
 class Res2Net(nn.Module):
-	# features_size不是输入、输出维度，基本不需要改
-    def __init__(self, features_size = 64, stride_ = 1, scale = 4, padding_ = 1, groups_ = 1, reduction = 16):
+    def __init__(self, features_size参数 = 64, stride_ = 1, scale = 4, padding_ = 1, groups_ = 1, reduction = 16):
         super(Res2Net,self).__init__()
         #erro for wrong input如果输入不正确则会报错
         # features_size = 64
