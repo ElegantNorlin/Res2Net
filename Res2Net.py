@@ -76,7 +76,7 @@ class Res2Block(nn.Module):
         out = torch.cat([y1, features], dim = 1)
         # 对拼接后的特征做1x1卷积，调整通道数
         conv1_out1 = self.conv1(out)
-        result = conv1_out1
+        result = conv1_out1 + features_in
         # 输出特征
         return result
 
