@@ -22,7 +22,7 @@ features_size即是输入特征尺寸也是输出特征尺寸，每个尺度的�
 '''
 class Res2Block(nn.Module):
     def __init__(self, features_size参数 = 64, stride_ = 1, scale = 4, padding_ = 1, groups_ = 1, reduction = 16):
-        super(Res2Net,self).__init__()
+        super(Res2Block,self).__init__()
         #erro for wrong input如果输入不正确则会报错
         # features_size = 64
         if scale < 2 or features_size % scale:
