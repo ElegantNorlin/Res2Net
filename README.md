@@ -11,6 +11,8 @@
 如果想看某一层网络的参数可以直接在相关位置加上打印代码，程序入口我已经写好了，直接写打印代码跑程序即可。
 可以根据代码逻辑打印其他CNN网络中各层的特征维度参数，为网络调整带来了便携
 
+确属如论文中所说，使用res2模块的backbone的准确度提升了好几个点
+
 ### Architecture image
 ![image](https://github.com/ElegantAlan/Res2Net/blob/main/Architecture%20image/res2net.PNG?raw=true)
 
