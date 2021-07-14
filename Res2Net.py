@@ -31,8 +31,12 @@ class Res2Block(nn.Module):
         # self.divided_features = 16
         self.divided_features = int(features_size / scale)
         self.conv1 = nn.Conv2d(features_size, features_size, kernel_size=1, stride=stride_, padding=0, groups=groups_)
+        self.bn1 = nn.BatchNorm2d(features_size)
+		self.relu = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv2d(self.divided_features, self.divided_features, kernel_size=3, stride=stride_, padding=padding_, groups=groups_)
         self.convs = nn.ModuleList()
+        
+
         # scale - 2 = 2循环执行两次
         for i in range(scale - 2):
 
@@ -48,6 +52,8 @@ class Res2Block(nn.Module):
         # 这次卷积为res2模块前的那一次卷积，可以用来调整通道数，是否需要1x1卷积层根据自己网络的情况而定
         # conv1_out.shape = torch.Size([8, 64, 32, 32])
         conv1_out = self.conv1(features_in)
+        conv1_out = self.bn1(conv1_out)
+        conv1_out = self.relu(conv1_out)
         # y1为res2模块中的第一次卷积（特征没变，所以相当于没做卷积）
         # y1.shape = torch.Size([8, 16, 32, 32])
         y1 = conv1_out[:,0:self.divided_features,:,:]
