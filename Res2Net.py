@@ -32,7 +32,9 @@ class Res2Block(nn.Module):
         self.divided_features = int(features_size / scale)
         self.conv1 = nn.Conv2d(features_size, features_size, kernel_size=1, stride=stride_, padding=0, groups=groups_)
         self.bn1 = nn.BatchNorm2d(features_size)
-		self.relu = nn.ReLU(inplace=True)
+        self.bn2 = nn.BatchNorm2d(self.divided_features)
+		self.relu1 = nn.ReLU(inplace=True)
+		self.relu2 = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv2d(self.divided_features, self.divided_features, kernel_size=3, stride=stride_, padding=padding_, groups=groups_)
         self.convs = nn.ModuleList()
         
@@ -53,7 +55,7 @@ class Res2Block(nn.Module):
         # conv1_out.shape = torch.Size([8, 64, 32, 32])
         conv1_out = self.conv1(features_in)
         conv1_out = self.bn1(conv1_out)
-        conv1_out = self.relu(conv1_out)
+        conv1_out = self.relu1(conv1_out)
         # y1为res2模块中的第一次卷积（特征没变，所以相当于没做卷积）
         # y1.shape = torch.Size([8, 16, 32, 32])
         y1 = conv1_out[:,0:self.divided_features,:,:]
@@ -61,6 +63,8 @@ class Res2Block(nn.Module):
         y2 = conv1_out[:,self.divided_features:2*self.divided_features,:,:]
         # fea为res2模块中的第二次卷积，下面用features承接了
         fea = self.conv2(y2)
+        fea = self.bn2(fea)
+        fea = self.relu2(fea)
         # 第二次卷积后的特征
         # 这里之所以用features变量承接是因为方便将后三次的卷积结果与第一次的卷积结果做拼接
         # features.shape = torch.Size([8, 16, 32, 32])
@@ -76,6 +80,8 @@ class Res2Block(nn.Module):
             # 第三次和第四次卷积就是这行代码
             # 将上一次卷积结果与本次卷积的输入拼接后作为新的输入特征
             fea = conv(fea + divided_feature)
+            fea = bn2(fea)
+            fea = relu2(fea)
             # 下面这行代码是在此for循环完成后将后三次卷积的结果拼接在一起
             features = torch.cat([features, fea], dim = 1)
         # 将第一次的卷积和后三次卷积的结果做拼接
