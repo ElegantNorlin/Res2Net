@@ -79,7 +79,7 @@ class Res2Block(nn.Module):
             divided_feature = conv1_out[:,pos:pos+self.divided_features,:,:]
             # 第三次和第四次卷积就是这行代码
             # 将上一次卷积结果与本次卷积的输入拼接后作为新的输入特征
-            fea = self.conv(fea + divided_feature)
+            fea = conv(fea + divided_feature)
             fea = self.bn2(fea)
             fea = self.relu2(fea)
             # 下面这行代码是在此for循环完成后将后三次卷积的结果拼接在一起
