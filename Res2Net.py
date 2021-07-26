@@ -98,9 +98,4 @@ if __name__ == "__main__":
     # bs,channels,height,width
     x = Variable(torch.rand([8, 64, 32, 32]).cuda())
     y = res2block(x)
-    # x.shape = torch.Size([8, 64, 32, 32])
-    print(x.shape)
-    # y.shape = torch.Size([8, 64, 32, 32])
-    print(y.shape)
-    print(res2block)
-    torch.save(res2block, 'Res2Net.pth')
+
