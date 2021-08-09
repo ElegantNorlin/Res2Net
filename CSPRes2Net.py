@@ -1,78 +1,8 @@
-from __future__ import division
-
 import math
-from torch.autograd import Variable
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-
-'''
-features_size即是输入特征尺寸也是输出特征尺寸，每个尺度的特征提取features_size都不同
-着我里是因为我的代码原因，我需要设置成这样，建议大家可以动态的传入参数
-怎么样动态的传入特征输入、输出维度的参数呢？
-其实很简单，不需要修改代码，在调用Res2Net类的时候只传入第一个参数，也就是features_size参数
-'''
-
-class Res2Block(nn.Module):
-    def __init__(self, features_size = 64, stride_ = 1, scale = 4, padding_ = 1, groups_ = 1, reduction = 16):
-        super(Res2Block,self).__init__()
-        #erro for wrong input如果输入不正确则会报错
-        # features_size = 64
-        if scale < 2 or features_size % scale:
-            print('Error:illegal input for scale or feature size')
-
-        # self.divided_features = 16
-        self.divided_features = int(features_size / scale)
-        self.conv1 = nn.Conv2d(features_size, features_size, kernel_size=1, stride=stride_, padding=0, groups=groups_)
-        self.conv2 = nn.Conv2d(self.divided_features, self.divided_features, kernel_size=3, stride=stride_, padding=padding_, groups=groups_)
-        self.convs = nn.ModuleList()
-        # scale - 2 = 2循环执行两次
-        for i in range(scale - 2):
-
-            self.convs.append(
-                nn.Conv2d(self.divided_features, self.divided_features, kernel_size=3, stride=stride_, padding=padding_, groups=groups_)
-            )
-
-
-    def forward(self, x):
-        # x为输入特征
-        # features_in.shape = torch.Size([8, 64, 32, 32])
-        features_in = x
-        # 这次卷积为res2模块前的那一次卷积，可以用来调整通道数，是否需要1x1卷积层根据自己网络的情况而定
-        # conv1_out.shape = torch.Size([8, 64, 32, 32])
-        conv1_out = self.conv1(features_in)
-        # y1为res2模块中的第一次卷积（特征没变，所以相当于没做卷积）
-        # y1.shape = torch.Size([8, 16, 32, 32])
-        y1 = conv1_out[:,0:self.divided_features,:,:]
-        # y2.shape = torch.Size([8, 16, 32, 32])
-        y2 = conv1_out[:,self.divided_features:2*self.divided_features,:,:]
-        # fea为res2模块中的第二次卷积，下面用features承接了
-        fea = self.conv2(y2)
-        # 第二次卷积后的特征
-        # 这里之所以用features变量承接是因为方便将后三次的卷积结果与第一次的卷积结果做拼接
-        # features.shape = torch.Size([8, 16, 32, 32])
-        features = fea
-        # self.convs中只有两层网络
-        for i, conv in enumerate(self.convs):
-            # 第一次循环pos = 16
-            # 第二次循环pos = 32
-            pos = (i + 1)*self.divided_features
-            # 第一次循环divided_feature.shape = torch.Size([8, 16, 32, 32])
-            # 第二次循环divided_feature.shape = torch.Size([8, 16, 32, 32])
-            divided_feature = conv1_out[:,pos:pos+self.divided_features,:,:]
-            # 第三次和第四次卷积就是这行代码
-            # 将上一次卷积结果与本次卷积的输入拼接后作为新的输入特征
-            fea = conv(fea + divided_feature)
-            # 下面这行代码是在此for循环完成后将后三次卷积的结果拼接在一起
-            features = torch.cat([features, fea], dim = 1)
-        # 将第一次的卷积和后三次卷积的结果做拼接
-        out = torch.cat([y1, features], dim = 1)
-        # 对拼接后的特征做1x1卷积，调整通道数
-        conv1_out1 = self.conv1(out)
-        result = conv1_out1 + features_in
-        # 输出特征
-        return result
 
 
 #-------------------------------------------------#
@@ -93,7 +23,7 @@ class Mish(nn.Module):
 class BasicConv(nn.Module):
     # in_channels输入特征通道数
     # out_channels输出特征通道数
-    # kernel_size卷积核尺寸
+    # kernel_size卷积核尺寸，kernel_size//2，所以卷机后长和宽仍然不变
     # stride=1 默认值为1，当调用此类若不传此参数则默认数值为1
     def __init__(self, in_channels, out_channels, kernel_size, stride=1):
         super(BasicConv, self).__init__()
@@ -108,7 +38,24 @@ class BasicConv(nn.Module):
         x = self.activation(x)
         return x
 
+#---------------------------------------------------#
+#   CSPdarknet的结构块的组成部分
+#   内部堆叠的残差块和yolov3中的残差块的定义类似，都是先1x1卷积，再3x3卷积   
+#---------------------------------------------------#
+class Resblock(nn.Module):
+    def __init__(self, channels, hidden_channels=None):
+        super(Resblock, self).__init__()
 
+        if hidden_channels is None:
+            hidden_channels = channels
+
+        self.block = nn.Sequential(
+            BasicConv(channels, hidden_channels, 1),
+            BasicConv(hidden_channels, channels, 3)
+        )
+
+    def forward(self, x):
+        return x + self.block(x)
 
 #--------------------------------------------------------------------#
 #   CSPdarknet的结构块(大的残差块)
@@ -137,7 +84,7 @@ class Resblock_body(nn.Module):
             #----------------------------------------------------------------#
             self.split_conv1 = BasicConv(out_channels, out_channels, 1)  
             self.blocks_conv = nn.Sequential(
-                Res2Block(),
+                Resblock(channels=out_channels, hidden_channels=out_channels//2),
                 BasicConv(out_channels, out_channels, 1)
             )
             # 这里的卷积降维了,调整通道数
@@ -155,13 +102,13 @@ class Resblock_body(nn.Module):
             self.split_conv1 = BasicConv(out_channels, out_channels//2, 1)
             # 残差结构的堆叠,也就是yolov4网络结构图中特征提取网络部分每一个大的残差块的堆叠
             '''
-            *[Res2Block(out_channels//2) for _ in range(num_blocks)]
+            *[Resblock(out_channels//2) for _ in range(num_blocks)]
             为Python中的解包，可以搜索一下Python中*的用法
             在这里是*是将列表中的数值取出来一个一个来用
             '''
-            # 在这里也定义了残差块循环后的那个卷积层
+            # 在blocks_conv中也同时定义了残差块循环后的那个卷积层
             self.blocks_conv = nn.Sequential(
-                *[Res2Block(out_channels//2) for _ in range(num_blocks)],
+                *[Resblock(out_channels//2) for _ in range(num_blocks)],
                 BasicConv(out_channels//2, out_channels//2, 1)
             )
             # 定义了一系列残差操作完成后的卷积层
@@ -186,6 +133,7 @@ class Resblock_body(nn.Module):
         #   残差拼接操作后还有一层卷积层，调整通道数最后对通道数进行整合
         #------------------------------------#
         x = self.concat_conv(x)
+
         return x
 
 #---------------------------------------------------#
@@ -202,6 +150,7 @@ class CSPDarkNet(nn.Module):
         self.inplanes = 32
         # 第一个CBM
         # 416,416,3 -> 416,416,32
+        # self.conv1.shape = torch.Size([8, 32, 416, 416])
         self.conv1 = BasicConv(3, self.inplanes, kernel_size=3, stride=1)
         # feature_channels列表定义了每个大残差块的输出特征通道数
         self.feature_channels = [64, 128, 256, 512, 1024]
@@ -230,14 +179,88 @@ class CSPDarkNet(nn.Module):
 
     # 整个特征提取网络的前向传播过程
     def forward(self, x):
+        # self.conv1.shape = torch.Size([8, 32, 416, 416])
         x = self.conv1(x)
-
+        # 第一轮CSP
+        '''
+        CSP中的下采样层.shape = torch.Size([8, 64, 208, 208])
+        残差边.shape = torch.Size([8, 64, 208, 208])
+        ResunitBefore.shape = torch.Size([8, 64, 208, 208])
+        Resblock.shape = torch.Size([8, 64, 208, 208])
+        残差循环 + 残差后的一层卷积.shape = torch.Size([8, 64, 208, 208])
+        Concat.shape = torch.Size([8, 128, 208, 208])
+        ConcatAfterConv.shape = torch.Size([8, 64, 208, 208])
+        '''
         x = self.stages[0](x)
+        # 第二轮CSP
+        '''
+        CSP中的下采样层.shape = torch.Size([8, 128, 104, 104])
+        残差边.shape = torch.Size([8, 64, 104, 104])
+        ResunitBefore.shape = torch.Size([8, 64, 104, 104])
+        Resblock.shape = torch.Size([8, 64, 104, 104])
+        Resblock.shape = torch.Size([8, 64, 104, 104])
+        残差后的那一层卷积没有改变通道数
+        Concat.shape = torch.Size([8, 128, 104, 104])
+        ConcatAfterConv.shape = torch.Size([8, 128, 104, 104])
+        '''
         x = self.stages[1](x)
+        # 第三轮CSP
+        '''
+        CSP中的下采样层.shape = torch.Size([8, 256, 52, 52])
+        残差边.shape = torch.Size([8, 128, 52, 52])
+        ResunitBefore.shape = torch.Size([8, 128, 52, 52])
+        8次循环
+        Resblock.shape = torch.Size([8, 128, 52, 52])
+        Resblock.shape = torch.Size([8, 128, 52, 52])
+        Resblock.shape = torch.Size([8, 128, 52, 52])
+        Resblock.shape = torch.Size([8, 128, 52, 52])
+        Resblock.shape = torch.Size([8, 128, 52, 52])
+        Resblock.shape = torch.Size([8, 128, 52, 52])
+        Resblock.shape = torch.Size([8, 128, 52, 52])
+        Resblock.shape = torch.Size([8, 128, 52, 52])
+        残差后的那一层卷积没有改变通道数
+        Concat.shape = torch.Size([8, 256, 52, 52])
+        ConcatAfterConv.shape = torch.Size([8, 256, 52, 52])
+        '''
         out3 = self.stages[2](x)
+        # 第四轮CSP
+        '''
+        CSP中的下采样层.shape = torch.Size([8, 512, 26, 26])
+        残差边.shape = torch.Size([8, 256, 26, 26])
+        ResunitBefore.shape = torch.Size([8, 256, 26, 26])
+        Resblock.shape = torch.Size([8, 256, 26, 26])
+        Resblock.shape = torch.Size([8, 256, 26, 26])
+        Resblock.shape = torch.Size([8, 256, 26, 26])
+        Resblock.shape = torch.Size([8, 256, 26, 26])
+        Resblock.shape = torch.Size([8, 256, 26, 26])
+        Resblock.shape = torch.Size([8, 256, 26, 26])
+        Resblock.shape = torch.Size([8, 256, 26, 26])
+        Resblock.shape = torch.Size([8, 256, 26, 26])
+        残差后的那一层卷积没有改变通道数
+        Concat.shape = torch.Size([8, 512, 26, 26])
+        ConcatAfterConv.shape = torch.Size([8, 512, 26, 26])
+        '''
         out4 = self.stages[3](out3)
+        # 第五轮CSP
+        '''
+        CSP中的下采样层.shape = torch.Size([8, 1024, 13, 13])
+        残差边.shape = torch.Size([8, 512, 13, 13])
+        ResunitBefore.shape = torch.Size([8, 512, 13, 13])
+        Resblock.shape = torch.Size([8, 512, 13, 13])
+        Resblock.shape = torch.Size([8, 512, 13, 13])
+        Resblock.shape = torch.Size([8, 512, 13, 13])
+        Resblock.shape = torch.Size([8, 512, 13, 13])
+        残差后的那一层卷积没有改变通道数
+        Concat.shape = torch.Size([8, 1024, 13, 13])
+        ConcatAfterConv.shape = torch.Size([8, 1024, 13, 13])
+        '''
         out5 = self.stages[4](out4)
         # 返回最后三层的特征向量，以便于后续的操作
+        '''
+        out3.shape = torch.Size([8, 256, 52, 52])
+        out4.shape = torch.Size([8, 512, 26, 26])
+        out5.shape = torch.Size([8, 1024, 13, 13])
+        '''
         return out3, out4, out5
 
 def darknet53(pretrained, **kwargs):
