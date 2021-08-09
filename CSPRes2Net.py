@@ -15,6 +15,80 @@ class Mish(nn.Module):
     def forward(self, x):
         return x * torch.tanh(F.softplus(x))
 
+
+class Res2Block(nn.Module):
+    def __init__(self, features_size, stride_ = 1, scale = 4, padding_ = 1, groups_ = 1, reduction = 16):
+        super(Res2Block,self).__init__()
+        #erro for wrong input如果输入不正确则会报错
+        # features_size = 64
+        if scale < 2 or features_size % scale:
+            print('Error:illegal input for scale or feature size')
+
+        # self.divided_features = 16
+        self.divided_features = int(features_size / scale)
+        self.conv1 = nn.Conv2d(features_size, features_size, kernel_size=1, stride=stride_, padding=0, groups=groups_)
+        self.bn1 = nn.BatchNorm2d(features_size)
+        self.bn2 = nn.BatchNorm2d(self.divided_features)
+		self.relu1 = nn.ReLU(inplace=True)
+		self.relu2 = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(self.divided_features, self.divided_features, kernel_size=3, stride=stride_, padding=padding_, groups=groups_)
+        self.convs = nn.ModuleList()
+        
+
+        # scale - 2 = 2循环执行两次
+        for i in range(scale - 2):
+
+            self.convs.append(
+                nn.Conv2d(self.divided_features, self.divided_features, kernel_size=3, stride=stride_, padding=padding_, groups=groups_)
+            )
+
+
+    def forward(self, x):
+        # x为输入特征
+        # features_in.shape = torch.Size([8, 64, 32, 32])
+        features_in = x
+        # 这次卷积为res2模块前的那一次卷积，可以用来调整通道数，是否需要1x1卷积层根据自己网络的情况而定
+        # conv1_out.shape = torch.Size([8, 64, 32, 32])
+        conv1_out = self.conv1(features_in)
+        conv1_out = self.bn1(conv1_out)
+        conv1_out = self.relu1(conv1_out)
+        # y1为res2模块中的第一次卷积（特征没变，所以相当于没做卷积）
+        # y1.shape = torch.Size([8, 16, 32, 32])
+        y1 = conv1_out[:,0:self.divided_features,:,:]
+        # y2.shape = torch.Size([8, 16, 32, 32])
+        y2 = conv1_out[:,self.divided_features:2*self.divided_features,:,:]
+        # fea为res2模块中的第二次卷积，下面用features承接了
+        fea = self.conv2(y2)
+        fea = self.bn2(fea)
+        fea = self.relu2(fea)
+        # 第二次卷积后的特征
+        # 这里之所以用features变量承接是因为方便将后三次的卷积结果与第一次的卷积结果做拼接
+        # features.shape = torch.Size([8, 16, 32, 32])
+        features = fea
+        # self.convs中只有两层网络
+        for i, conv in enumerate(self.convs):
+            # 第一次循环pos = 16
+            # 第二次循环pos = 32
+            pos = (i + 1)*self.divided_features
+            # 第一次循环divided_feature.shape = torch.Size([8, 16, 32, 32])
+            # 第二次循环divided_feature.shape = torch.Size([8, 16, 32, 32])
+            divided_feature = conv1_out[:,pos:pos+self.divided_features,:,:]
+            # 第三次和第四次卷积就是这行代码
+            # 将上一次卷积结果与本次卷积的输入拼接后作为新的输入特征
+            fea = conv(fea + divided_feature)
+            fea = self.bn2(fea)
+            fea = self.relu2(fea)
+            # 下面这行代码是在此for循环完成后将后三次卷积的结果拼接在一起
+            features = torch.cat([features, fea], dim = 1)
+        # 将第一次的卷积和后三次卷积的结果做拼接
+        out = torch.cat([y1, features], dim = 1)
+        # 对拼接后的特征做1x1卷积，调整通道数
+        conv1_out1 = self.conv1(out)
+        result = conv1_out1 + features_in
+        # 输出特征
+        return result
+
+
 #---------------------------------------------------#
 #   CBM卷积块 = 卷积 + 标准化 + 激活函数
 #   Conv2d + BatchNormalization + Mish
@@ -51,7 +125,7 @@ class Resblock(nn.Module):
 
         self.block = nn.Sequential(
             BasicConv(channels, hidden_channels, 1),
-            BasicConv(hidden_channels, channels, 3)
+            BasicConv(hidden_channels, channels, 3),
         )
 
     def forward(self, x):
