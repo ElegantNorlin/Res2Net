@@ -125,7 +125,7 @@ class Resblock(nn.Module):
 
         self.block = nn.Sequential(
             BasicConv(channels, hidden_channels, 1),
-            BasicConv(hidden_channels, channels, 3),
+            BasicConv(hidden_channels, channels, 3)
         )
 
     def forward(self, x):
